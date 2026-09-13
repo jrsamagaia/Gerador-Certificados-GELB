@@ -135,13 +135,18 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
         <div className="flex items-center justify-between border-b-2 border-amber-400/60 pb-4">
           {/* LOGO DA UEL / GRUPO ESCOTEIRO NO CANTO SUPERIOR ESQUERDO */}
           <div className="flex items-center gap-4">
-            <img
-              src={certificate.uelLogoPath || (certificate.logoPath && certificate.logoPath.startsWith('data:') ? certificate.logoPath : getOfficialLogo())}
-              alt="Logo UEL / Grupo Escoteiro"
-              crossOrigin="anonymous"
-              referrerPolicy="no-referrer"
-              className="w-20 h-20 object-contain drop-shadow-md"
-            />
+            {(() => {
+              const uelLogo = certificate.uelLogoPath?.trim() || getOfficialLogo();
+              return uelLogo && uelLogo.trim() !== '' ? (
+                <img
+                  src={uelLogo}
+                  alt="Logo Grupo Escoteiro Leões de Blumenau - GELB 32/SC"
+                  {...(!uelLogo.startsWith('data:') ? { crossOrigin: 'anonymous' } : {})}
+                  referrerPolicy="no-referrer"
+                  className="w-20 h-20 object-contain drop-shadow-md"
+                />
+              ) : null;
+            })()}
             <div>
               <h3 className="text-lg font-bold tracking-wide text-[#0F2C59] uppercase font-serif" style={{ fontFamily: "'Cinzel', serif" }}>
                 {certificate.groupName || 'O GRUPO ESCOTEIRO LEÕES DE BLUMENAU'}
@@ -157,7 +162,7 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
 
           {/* CANTO SUPERIOR DIREITO: LOGO ESCOTEIROS SC (se selecionada) */}
           <div className="flex flex-col items-center justify-center min-w-[64px]">
-            {certificate.scLogoPath ? (
+            {certificate.scLogoPath && certificate.scLogoPath.trim() !== '' ? (
               <img
                 src={certificate.scLogoPath}
                 alt="Logo Escoteiros SC"
@@ -249,7 +254,7 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
             {certificate.signatories && certificate.signatories.filter(s => s.enabled).map((sig) => (
               <div key={sig.id} className="text-center w-44">
                 <div className="h-10 flex items-center justify-center mb-1">
-                  {sig.signatureImage ? (
+                  {sig.signatureImage && sig.signatureImage.trim() !== '' ? (
                     <img src={sig.signatureImage} alt={`Assinatura ${sig.name}`} className="h-10 max-w-full object-contain" />
                   ) : (
                     <div

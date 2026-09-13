@@ -13,6 +13,7 @@ import {
   Check,
 } from 'lucide-react';
 import { FontDefinition } from '../config/gelbConfig';
+import { GELB_LOGO_DATA_URL } from '../assets/gelbAssetsData';
 import {
   getSavedFonts,
   saveSavedFonts,
@@ -26,7 +27,7 @@ import {
 
 export const DirectoryInspector: React.FC = () => {
   const [fonts, setFonts] = useState<FontDefinition[]>([]);
-  const [officialLogo, setOfficialLogo] = useState<string>('');
+  const [officialLogo, setOfficialLogo] = useState<string>(() => getOfficialLogo());
   const [editingFontId, setEditingFontId] = useState<string | null>(null);
   const [customFontInput, setCustomFontInput] = useState<string>('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -35,7 +36,10 @@ export const DirectoryInspector: React.FC = () => {
     const loadedFonts = getSavedFonts();
     setFonts(loadedFonts);
     loadGoogleFontsToHead(loadedFonts);
-    setOfficialLogo(getOfficialLogo());
+    const loadedLogo = getOfficialLogo();
+    if (loadedLogo) {
+      setOfficialLogo(loadedLogo);
+    }
   }, []);
 
   const triggerNotify = (msg: string) => {
@@ -177,12 +181,15 @@ export const DirectoryInspector: React.FC = () => {
 
             {/* ÁREA DE PRÉ-VISUALIZAÇÃO DA LOGO */}
             <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300 hover:border-amber-400 transition-colors">
-              <img
-                src={officialLogo}
-                alt="Logo Oficial do GELB 32/SC"
-                referrerPolicy="no-referrer"
-                className="w-40 h-40 object-contain drop-shadow-md my-2"
-              />
+              {officialLogo && officialLogo.trim() !== '' ? (
+                <img
+                  src={officialLogo}
+                  alt="Logo Oficial do GELB 32/SC"
+                  referrerPolicy="no-referrer"
+                  className="w-40 h-40 object-contain drop-shadow-md my-2"
+                  onError={() => setOfficialLogo(GELB_LOGO_DATA_URL)}
+                />
+              ) : null}
               <p className="text-xs font-bold text-[#0F2C59] uppercase tracking-wider text-center mt-3">
                 Grupo Escoteiro Leões de Blumenau
               </p>

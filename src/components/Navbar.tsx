@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, History, FolderTree } from 'lucide-react';
 import { GELB_LOGO_DATA_URL } from '../assets/gelbAssetsData';
+import { getOfficialLogo } from '../utils/gelbSettings';
 
 export type ActiveTab = 'single' | 'batch' | 'history' | 'validate' | 'directories';
 
@@ -15,6 +16,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   issuedCount,
 }) => {
+  const [logo, setLogo] = useState<string>(() => getOfficialLogo() || GELB_LOGO_DATA_URL);
+
+  useEffect(() => {
+    const updateLogo = () => {
+      setLogo(getOfficialLogo() || GELB_LOGO_DATA_URL);
+    };
+
+    window.addEventListener('gelb_logo_changed', updateLogo);
+    window.addEventListener('storage', updateLogo);
+
+    return () => {
+      window.removeEventListener('gelb_logo_changed', updateLogo);
+      window.removeEventListener('storage', updateLogo);
+    };
+  }, []);
+
   return (
     <header className="bg-[#0F2C59] text-white shadow-lg sticky top-0 z-50 border-b-4 border-amber-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -22,13 +39,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* MARCA E LOGO GELB 32/SC */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('single')}>
-            <div className="bg-white p-1.5 rounded-full shadow-md border-2 border-amber-400">
-              <img
-                src={GELB_LOGO_DATA_URL}
-                alt="Logo GELB 32/SC"
-                referrerPolicy="no-referrer"
-                className="w-11 h-11 object-contain"
-              />
+            <div className="bg-white p-1 rounded-xl shadow-md border-2 border-amber-400 flex items-center justify-center w-14 h-14 overflow-hidden">
+              {logo && logo.trim() !== '' ? (
+                <img
+                  src={logo}
+                  alt="Logo Grupo Escoteiro Leões de Blumenau - GELB 32/SC"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain"
+                  onError={() => setLogo(GELB_LOGO_DATA_URL)}
+                />
+              ) : null}
             </div>
             <div>
               <div className="flex items-center gap-2">

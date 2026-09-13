@@ -49,9 +49,9 @@ export const GELB_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
   </g>
 </svg>`;
 
-export const GELB_LOGO_OFFICIAL_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GELB_LOGO_SVG)}`;
+export const GELB_LOGO_OFFICIAL_SVG_URL = `data:image/svg+xml;utf8,${encodeURIComponent(GELB_LOGO_SVG)}`;
 
-export const GELB_LOGO_DATA_URL = GELB_LOGO_OFFICIAL_URL;
+export const GELB_LOGO_DATA_URL = GELB_LOGO_OFFICIAL_SVG_URL;
 
 export const ESCOTEIROS_DO_BRASIL_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 450" width="100%" height="100%">
   <g>

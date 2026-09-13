@@ -79,7 +79,7 @@ export function resetSavedFonts(): FontDefinition[] {
 export function getOfficialLogo(): string {
   try {
     const saved = localStorage.getItem(LOGO_STORAGE_KEY);
-    if (saved) {
+    if (saved && saved.trim() !== '') {
       return saved;
     }
   } catch (e) {
@@ -91,6 +91,9 @@ export function getOfficialLogo(): string {
 export function saveOfficialLogo(logoDataUrl: string): void {
   try {
     localStorage.setItem(LOGO_STORAGE_KEY, logoDataUrl);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gelb_logo_changed', { detail: logoDataUrl }));
+    }
   } catch (e) {
     console.warn('Erro ao salvar logo oficial:', e);
   }
@@ -99,6 +102,9 @@ export function saveOfficialLogo(logoDataUrl: string): void {
 export function resetOfficialLogo(): void {
   try {
     localStorage.removeItem(LOGO_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gelb_logo_changed', { detail: GELB_LOGO_DATA_URL }));
+    }
   } catch (e) {
     console.warn('Erro ao resetar logo oficial:', e);
   }
