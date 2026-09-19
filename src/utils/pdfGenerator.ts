@@ -1,55 +1,67 @@
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 
 /**
- * Convert any oklch(...) colors in cloned document to rgba(...) format
- * so html2canvas can parse styles without throwing errors.
+ * Sanitize modern CSS colors (oklab, oklch, lab, lch) in the cloned document
+ * by converting them to standard rgba(...) values where necessary.
+ * IMPORTANT: Never apply stroke or fill to non-SVG HTML elements to prevent duplicate text shadows.
  */
-function fixOklchInClonedDoc(clonedDoc: Document): void {
+function fixModernColorsInClonedDoc(clonedDoc: Document, targetElId?: string): void {
   const canvas = clonedDoc.createElement('canvas');
   canvas.width = 1;
   canvas.height = 1;
   const ctx = canvas.getContext('2d');
 
-  function replaceOklchInString(str: string): string {
-    if (!str || !str.includes('oklch')) return str;
-    return str.replace(/oklch\([^)]+\)/g, (match) => {
+  function replaceModernColorsInString(str: string): string {
+    if (!str) return str;
+    if (!str.includes('oklch') && !str.includes('oklab') && !str.includes('lab(') && !str.includes('lch(')) {
+      return str;
+    }
+    return str.replace(/(?:oklab|oklch|lab|lch)\([^)]+\)/gi, (match) => {
       if (!ctx) return match;
       try {
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = '#ffffff';
         ctx.fillStyle = match;
         ctx.fillRect(0, 0, 1, 1);
         const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
         return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
       } catch {
-        return '#000000';
+        return match;
       }
     });
   }
 
-  // 1. Process all <style> elements
+  // 1. Process all <style> elements in clonedDoc
   const styles = clonedDoc.querySelectorAll('style');
   styles.forEach((styleEl) => {
-    if (styleEl.textContent && styleEl.textContent.includes('oklch')) {
-      styleEl.textContent = replaceOklchInString(styleEl.textContent);
+    if (styleEl.textContent && (styleEl.textContent.includes('okl') || styleEl.textContent.includes('lab(') || styleEl.textContent.includes('lch('))) {
+      styleEl.textContent = replaceModernColorsInString(styleEl.textContent);
     }
   });
 
-  // 2. Process all elements with inline or computed styles
-  const allElements = clonedDoc.querySelectorAll<HTMLElement>('*');
+  // 2. Process only the target element tree to prevent global side-effects
+  const root = (targetElId && clonedDoc.getElementById(targetElId)) || clonedDoc.body;
+  const allElements = root.querySelectorAll<HTMLElement>('*');
+
   allElements.forEach((el) => {
-    if (el.style && el.style.cssText && el.style.cssText.includes('oklch')) {
-      el.style.cssText = replaceOklchInString(el.style.cssText);
+    // Only sanitize inline styles if they contain modern color functions
+    if (el.style && el.style.cssText && (el.style.cssText.includes('okl') || el.style.cssText.includes('lab(') || el.style.cssText.includes('lch('))) {
+      el.style.cssText = replaceModernColorsInString(el.style.cssText);
     }
 
     try {
       const computed = clonedDoc.defaultView?.getComputedStyle(el);
       if (computed) {
-        const props = ['color', 'backgroundColor', 'borderColor', 'outlineColor', 'fill', 'stroke', 'boxShadow'];
-        props.forEach((prop) => {
+        // Distinguish between SVG elements and standard HTML elements
+        const isSvg = el instanceof SVGElement;
+        const propsToInspect = isSvg
+          ? ['fill', 'stroke', 'color', 'backgroundColor', 'borderColor']
+          : ['color', 'backgroundColor', 'borderColor', 'outlineColor'];
+
+        propsToInspect.forEach((prop) => {
           const val = computed.getPropertyValue(prop);
-          if (val && val.includes('oklch')) {
-            el.style.setProperty(prop, replaceOklchInString(val), 'important');
+          if (val && (val.includes('okl') || val.includes('lab') || val.includes('lch'))) {
+            el.style.setProperty(prop, replaceModernColorsInString(val), 'important');
           }
         });
       }
@@ -59,28 +71,83 @@ function fixOklchInClonedDoc(clonedDoc: Document): void {
   });
 }
 
+/**
+ * Normalizes ancestor transforms and syncs webfonts for clean canvas rendering
+ */
+async function prepareClonedDocument(clonedDoc: Document, targetElId: string): Promise<void> {
+  // 1. Synchronize loaded fonts from parent document to iframe document
+  if (document.fonts) {
+    try {
+      await document.fonts.ready;
+      if (clonedDoc.fonts) {
+        document.fonts.forEach((font) => {
+          try {
+            clonedDoc.fonts.add(font);
+          } catch {
+            // ignore duplicates
+          }
+        });
+        await clonedDoc.fonts.ready;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  // 2. Locate target element and strip CSS transforms and negative margins from all ancestors
+  const clonedElement = clonedDoc.getElementById(targetElId);
+  if (clonedElement) {
+    let parent: HTMLElement | null = clonedElement.parentElement;
+    while (parent && parent !== clonedDoc.body) {
+      parent.style.transform = 'none';
+      parent.style.webkitTransform = 'none';
+      parent.style.margin = '0';
+      parent.style.padding = '0';
+      parent.style.width = 'auto';
+      parent.style.height = 'auto';
+      parent = parent.parentElement;
+    }
+
+    clonedElement.style.transform = 'none';
+    clonedElement.style.webkitTransform = 'none';
+    clonedElement.style.margin = '0';
+  }
+
+  // 3. Sanitize colors safely
+  fixModernColorsInClonedDoc(clonedDoc, targetElId);
+}
+
 export async function exportCertificateToPdf(
   elementId: string,
   fileName: string = 'certificado-gelb.pdf'
 ): Promise<void> {
-  const element = document.getElementById(elementId);
+  // Check if dedicated unscaled export canvas is available
+  const targetId = document.getElementById('export-certificate-canvas') ? 'export-certificate-canvas' : elementId;
+  const element = document.getElementById(targetId);
   if (!element) {
-    throw new Error(`Elemento com ID '${elementId}' não foi encontrado.`);
+    throw new Error(`Elemento com ID '${targetId}' não foi encontrado.`);
   }
 
-  // Captura o elemento em alta resolução (scale 2 para nitidez de impressão)
+  // Wait for webfonts before rasterizing
+  if (document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch {}
+  }
+
+  // Captura o elemento em alta resolução (scale 2 para nitidez perfeita em A4)
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
     allowTaint: true,
     backgroundColor: '#ffffff',
     logging: false,
-    onclone: (clonedDoc) => {
-      fixOklchInClonedDoc(clonedDoc);
+    onclone: async (clonedDoc) => {
+      await prepareClonedDocument(clonedDoc, targetId);
     },
   });
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const imgData = canvas.toDataURL('image/jpeg', 0.96);
 
   // PDF em orientação Paisagem (Landscape), formato A4
   const pdf = new jsPDF({
@@ -100,9 +167,17 @@ export async function exportCertificateToPng(
   elementId: string,
   fileName: string = 'certificado-gelb.png'
 ): Promise<void> {
-  const element = document.getElementById(elementId);
+  // Check if dedicated unscaled export canvas is available
+  const targetId = document.getElementById('export-certificate-canvas') ? 'export-certificate-canvas' : elementId;
+  const element = document.getElementById(targetId);
   if (!element) {
-    throw new Error(`Elemento com ID '${elementId}' não foi encontrado.`);
+    throw new Error(`Elemento com ID '${targetId}' não foi encontrado.`);
+  }
+
+  if (document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch {}
   }
 
   const canvas = await html2canvas(element, {
@@ -111,8 +186,8 @@ export async function exportCertificateToPng(
     allowTaint: true,
     backgroundColor: '#ffffff',
     logging: false,
-    onclone: (clonedDoc) => {
-      fixOklchInClonedDoc(clonedDoc);
+    onclone: async (clonedDoc) => {
+      await prepareClonedDocument(clonedDoc, targetId);
     },
   });
 

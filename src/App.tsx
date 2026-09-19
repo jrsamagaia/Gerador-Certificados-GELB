@@ -6,7 +6,7 @@ import { BatchGenerator } from './components/BatchGenerator';
 import { HistoryList } from './components/HistoryList';
 import { CertificateValidator } from './components/CertificateValidator';
 import { DirectoryInspector } from './components/DirectoryInspector';
-import { CertificateData } from './types/certificate';
+import { CertificateData, CertificateTemplate } from './types/certificate';
 import { GELB_LOGO_DATA_URL, SIGNATURE_PRESIDENTE_DATA_URL, SIGNATURE_DIRETORIA_DATA_URL } from './assets/gelbAssetsData';
 import { generateCertificateHash } from './utils/qrUtils';
 import { exportCertificateToPdf, exportCertificateToPng, printCertificate } from './utils/pdfGenerator';
@@ -110,22 +110,36 @@ export default function App() {
     setActiveTab('single');
   };
 
+  const handleSelectTemplateForIssuer = (template: CertificateTemplate) => {
+    setCertificate((prev) => ({
+      ...prev,
+      category: template.category,
+      model: template.model,
+      eventName: `${template.category} - ${template.model}`,
+      customTemplateId: template.id,
+      customTemplateName: template.name,
+      customTemplateBackground: template.previewImageDataUrl,
+      useCustomTemplate: true,
+    }));
+    setActiveTab('single');
+  };
+
   const handleDownloadPdf = () => {
     exportCertificateToPdf(
-      'main-certificate-canvas',
+      'export-certificate-canvas',
       `certificado-gelb-${certificate.recipientName.toLowerCase().replace(/\s+/g, '-')}.pdf`
     );
   };
 
   const handleDownloadPng = () => {
     exportCertificateToPng(
-      'main-certificate-canvas',
+      'export-certificate-canvas',
       `certificado-gelb-${certificate.recipientName.toLowerCase().replace(/\s+/g, '-')}.png`
     );
   };
 
   const handlePrint = () => {
-    printCertificate('main-certificate-canvas');
+    printCertificate('export-certificate-canvas');
   };
 
   return (
@@ -217,8 +231,31 @@ export default function App() {
 
         {/* ABA 5: INSPETOR DE DIRETÓRIOS E ASSETS GELB */}
         {activeTab === 'directories' && (
-          <DirectoryInspector />
+          <DirectoryInspector
+            onSelectTemplateForIssuer={handleSelectTemplateForIssuer}
+          />
         )}
+
+        {/* CONTAINER OCULTO NÃO-TRANSFORMADO DEDICADO EXCLUSIVAMENTE À EXPORTAÇÃO EM ALTA RESOLUÇÃO */}
+        <div
+          style={{
+            position: 'fixed',
+            left: '-10000px',
+            top: 0,
+            width: '1122px',
+            height: '793px',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+            zIndex: -9999,
+          }}
+          aria-hidden="true"
+        >
+          <CertificateCanvas
+            certificate={certificate}
+            containerId="export-certificate-canvas"
+            isPrintPreview
+          />
+        </div>
 
       </main>
 

@@ -16,6 +16,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [certToDelete, setCertToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const filteredHistory = history.filter((cert) => {
     const matchesSearch =
@@ -118,7 +119,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => onDeleteFromHistory(cert.id)}
+                    onClick={() => setCertToDelete({ id: cert.id, name: cert.recipientName })}
                     className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                     title="Excluir do histórico"
                   >
@@ -132,6 +133,50 @@ export const HistoryList: React.FC<HistoryListProps> = ({
         </div>
       )}
 
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DO HISTÓRICO */}
+      {certToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 text-center font-serif">
+                Excluir Certificado?
+              </h3>
+              <p className="text-sm text-slate-600 text-center mt-2">
+                Deseja realmente remover o certificado emitido para{' '}
+                <strong className="text-slate-900 font-semibold">"{certToDelete.name}"</strong>?
+              </p>
+            </div>
+
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCertToDelete(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteFromHistory(certToDelete.id);
+                  setCertToDelete(null);
+                }}
+                className="px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-md flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sim, Excluir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

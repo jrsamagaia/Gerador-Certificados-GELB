@@ -75,8 +75,82 @@ export interface CertificateData {
   // Assinaturas
   signatories: Signatory[];
   
+  // Modelo Específico em PDF
+  customTemplateId?: string;
+  customTemplateName?: string;
+  useCustomTemplate?: boolean;
+  customTemplateBackground?: string; // Imagem rasterizada da página para renderização
+  templateMode?: 'faithful-structure' | 'hybrid-system'; // 'faithful-structure' mantém a estrutura exata do certificado enviado
+  fillMode?: 'fields-on-lines' | 'center-diploma'; // 'fields-on-lines' preenche linhas pré-impressas
+  
+  // Campos de posicionamento para linhas pré-impressas
+  fieldRecipientY?: number; // % vertical linha do filhote/homenageado (padrão: 31.8)
+  fieldRecipientX?: number; // % horizontal início da linha do nome (padrão: 43.0)
+  fieldRecipientFontSize?: number; // Tamanho fonte filhote
+  fieldRecipientFontFamily?: string; // Fonte filhote
+  fieldRecipientColor?: string; // Cor filhote
+  
+  showResponsaveisOnTemplate?: boolean; // Se preenche responsáveis na linha
+  fieldResponsaveisY?: number; // % vertical linha responsáveis (padrão: 36.2)
+  fieldResponsaveisX?: number; // % horizontal início linha responsáveis (padrão: 46.5)
+  fieldResponsaveisFontSize?: number; // Tamanho fonte responsáveis
+  
+  showGroupOnTemplate?: boolean; // Se preenche grupo escoteiro na linha
+  fieldGroupY?: number; // % vertical linha grupo escoteiro (padrão: 44.8)
+  fieldGroupX?: number; // % horizontal início linha grupo escoteiro (padrão: 41.5)
+  fieldGroupFontSize?: number; // Tamanho fonte grupo escoteiro
+  
+  fieldDateY?: number; // % vertical linha de data fracionada (padrão: 54.8)
+  fieldCityX?: number; // % horizontal centro cidade (padrão: 34.2)
+  fieldDayX?: number; // % horizontal centro dia (padrão: 44.8)
+  fieldMonthX?: number; // % horizontal centro mês (padrão: 55.5)
+  fieldYearX?: number; // % horizontal centro ano (padrão: 67.5)
+  fieldDateFontSize?: number; // Tamanho fonte data fracionada
+  
+  fieldSignaturesY?: number; // % vertical assinaturas sobre as linhas (padrão: 66.0)
+  fieldSigLeftX?: number; // % horizontal assinatura esquerda (padrão: 35.5)
+  fieldSigRightX?: number; // % horizontal assinatura direita (padrão: 62.5)
+  
+  // Modo centralizado clássico (fallback)
+  namePosY?: number; // Posição vertical do nome (% do topo, ex: 52)
+  namePosX?: number; // Posição horizontal do nome (% da esquerda, ex: 50)
+  nameFontSize?: number; // Tamanho da fonte do nome em px (ex: 36)
+  nameColor?: string; // Cor do texto do nome (ex: '#0F2C59')
+  nameFontFamily?: string; // Família tipográfica do nome
+  showRegistrationOnTemplate?: boolean; // Se exibe Registro UEB sobre o modelo
+  regPosY?: number; // Posição vertical do registro (% do topo)
+  showDateOnTemplate?: boolean; // Se exibe data sobre o modelo
+  datePosY?: number; // Posição vertical da data (% do topo, ex: 68)
+  dateFontSize?: number; // Tamanho da fonte da data
+  dateColor?: string; // Cor da data
+  showSignaturesOnTemplate?: boolean; // Se exibe assinaturas digitais sobrepostas
+  signaturesPosY?: number; // Posição vertical das assinaturas (% do topo, ex: 80)
+  
   // Metadados
   issuedAt: string;
+}
+
+export interface CertificateTemplate {
+  id: string;
+  name: string; // Ex: 'Certificado de Acolhida dos Filhotes'
+  category: ScoutCategory;
+  model: string; // Ex: 'Progressão Filhotes' ou 'Acolhida'
+  fileName: string;
+  fileSize: number;
+  pdfDataUrl: string; // Base64 data URL do arquivo PDF original
+  previewImageDataUrl?: string; // Imagem da página para renderização
+  description?: string;
+  orientation: 'landscape' | 'portrait';
+  isDefault?: boolean;
+  defaultNamePosY?: number;
+  defaultNamePosX?: number;
+  defaultNameFontSize?: number;
+  defaultNameFontFamily?: string;
+  defaultNameColor?: string;
+  defaultDatePosY?: number;
+  defaultSignaturesPosY?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BatchRecipient {

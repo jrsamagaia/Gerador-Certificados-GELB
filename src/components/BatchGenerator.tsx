@@ -3,7 +3,7 @@ import { FileText, Download, Play, CheckCircle2, UserPlus, Sparkles, Layers } fr
 import { CertificateData, CertificateType, ScoutSection, BatchRecipient } from '../types/certificate';
 import { generateCertificateHash } from '../utils/qrUtils';
 import { exportCertificateToPdf } from '../utils/pdfGenerator';
-import { GELB_LOGO_DATA_URL } from '../assets/gelbAssetsData';
+import { CertificateCanvas } from './CertificateCanvas';
 
 interface BatchGeneratorProps {
   baseCertificate: CertificateData;
@@ -251,30 +251,13 @@ export const BatchGenerator: React.FC<BatchGeneratorProps> = ({
                     </button>
                   </div>
 
-                  {/* Renderizador de miniatura do certificado */}
-                  <div className="transform scale-[0.45] origin-top-left -mb-[430px] -mr-[600px] pointer-events-none">
-                    <div id={`batch-cert-item-${index}`}>
-                      {/* Componente simplificado ou miniatura */}
-                      <div className="w-[1122px] h-[793px] border-[14px] border-[#0F2C59] bg-white p-12 flex flex-col justify-between font-serif">
-                        <div className="flex items-center justify-between border-b-2 border-amber-400 pb-4">
-                          <div className="flex items-center gap-4">
-                            <img src={GELB_LOGO_DATA_URL} className="w-20 h-20 object-contain" alt="Logo GELB" referrerPolicy="no-referrer" crossOrigin="anonymous" />
-                            <div>
-                              <h2 className="text-xl font-bold text-[#0F2C59]">O GRUPO ESCOTEIRO LEÕES DE BLUMENAU</h2>
-                              <p className="text-xs text-amber-700 font-bold">GELB 32/SC &bull; Blumenau - SC</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-center my-6">
-                          <h1 className="text-3xl font-extrabold text-[#0F2C59] uppercase">{cert.eventName}</h1>
-                          <p className="text-lg text-slate-600 my-4">Certificamos que <strong className="text-amber-900">{cert.recipientName}</strong> participou com êxito.</p>
-                          <p className="text-sm font-semibold text-[#0F2C59]">Blumenau - SC, {cert.eventDate}</p>
-                        </div>
-                        <div className="flex justify-between items-end border-t pt-4">
-                          <span className="text-xs font-mono font-bold text-slate-500">Hash: {cert.hash}</span>
-                          <span className="text-xs font-bold text-[#0F2C59]">Diretoria Executiva GELB 32/SC</span>
-                        </div>
-                      </div>
+                  {/* Renderizador fiel do certificado */}
+                  <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100 p-2">
+                    <div className="transform scale-[0.42] origin-top-left -mb-[460px] -mr-[650px] w-[1122px] pointer-events-none">
+                      <CertificateCanvas
+                        certificate={cert}
+                        containerId={`batch-cert-item-${index}`}
+                      />
                     </div>
                   </div>
 

@@ -30,8 +30,10 @@ export const CATEGORY_MODELS_MAP: Record<Exclude<ScoutCategory, 'Todas'>, string
     'Progressão Filhotes',
   ],
   'Especialidades': [
-    'Especialidade (Lobinho / Escoteiro)',
-    'Especialidade (Sênior / Pioneiro)',
+    'Especialidade Lobinho',
+    'Especialidade Escoteiro',
+    'Especialidade Sênior',
+    'Especialidade Pioneiro',
   ],
   'Promessas': [
     'Promessa (Lobinho)',
