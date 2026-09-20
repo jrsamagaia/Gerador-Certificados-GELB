@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Printer, Save, Image, Plus, Trash2, Upload, ChevronDown, Sparkles, FileText, CheckCircle2, Layers, Eye, X, SlidersHorizontal } from 'lucide-react';
+import { Download, Printer, Save, Image, Plus, Trash2, Upload, ChevronDown, Sparkles, FileText, CheckCircle2, Layers, Eye, X, SlidersHorizontal, Award } from 'lucide-react';
 import { CertificateData, ScoutCategory, Signatory, CertificateTemplate } from '../types/certificate';
 import { SCOUT_CATEGORIES, CATEGORY_MODELS_MAP, ALL_MODELS } from '../data/scoutCategoriesData';
 import { generateCertificateHash } from '../utils/qrUtils';
@@ -436,6 +436,11 @@ export const CertificateForm: React.FC<CertificateFormProps> = ({
                     fieldResponsaveisY: 36.2,
                     fieldResponsaveisX: 46.5,
                     fieldResponsaveisFontSize: 17,
+                    fieldProgressionStageY: 40.5,
+                    fieldProgressionStageX: 44.0,
+                    fieldProgressionStageFontSize: 17,
+                    showProgressionStageOnTemplate: true,
+                    progressionStage: prev.progressionStage || 'Acolhida dos Filhotes',
                     fieldGroupY: 44.8,
                     fieldGroupX: 41.5,
                     fieldGroupFontSize: 17,
@@ -627,6 +632,73 @@ export const CertificateForm: React.FC<CertificateFormProps> = ({
                           step="1"
                           value={certificate.fieldResponsaveisFontSize ?? 17}
                           onChange={(e) => handleInputChange('fieldResponsaveisFontSize', parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-stone-700 rounded appearance-none cursor-pointer accent-amber-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* LINHA: PROGRESSÃO DE ETAPA DE (Entre Pais/Responsáveis e Grupo) */}
+                <div className="bg-[#2a2624] p-3 rounded-lg border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="chk-prog-stage"
+                        checked={certificate.showProgressionStageOnTemplate !== false}
+                        onChange={(e) => handleInputChange('showProgressionStageOnTemplate', e.target.checked)}
+                        className="rounded text-amber-500 focus:ring-amber-400 bg-stone-800 border-stone-600"
+                      />
+                      <label htmlFor="chk-prog-stage" className="text-xs font-bold text-amber-200 cursor-pointer flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Progressão de etapa de:</span>
+                      </label>
+                    </div>
+                    <span className="text-[11px] font-mono text-stone-400">
+                      Y: {certificate.fieldProgressionStageY ?? 40.5}% &bull; X: {certificate.fieldProgressionStageX ?? 44.0}%
+                    </span>
+                  </div>
+
+                  {certificate.showProgressionStageOnTemplate !== false && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                      <div>
+                        <label className="block text-[10px] text-stone-400 mb-0.5">Posição Vertical (Y):</label>
+                        <input
+                          type="range"
+                          min="30"
+                          max="65"
+                          step="0.2"
+                          value={certificate.fieldProgressionStageY ?? 40.5}
+                          onChange={(e) => handleInputChange('fieldProgressionStageY', parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-stone-700 rounded appearance-none cursor-pointer accent-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-stone-400 mb-0.5">Início Horizontal (X):</label>
+                        <input
+                          type="range"
+                          min="25"
+                          max="65"
+                          step="0.5"
+                          value={certificate.fieldProgressionStageX ?? 44.0}
+                          onChange={(e) => handleInputChange('fieldProgressionStageX', parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-stone-700 rounded appearance-none cursor-pointer accent-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-stone-400 mb-0.5">
+                          Tamanho da Fonte: <strong className="text-amber-400">{certificate.fieldProgressionStageFontSize ?? 17}px</strong>
+                        </label>
+                        <input
+                          type="range"
+                          min="13"
+                          max="26"
+                          step="1"
+                          value={certificate.fieldProgressionStageFontSize ?? 17}
+                          onChange={(e) => handleInputChange('fieldProgressionStageFontSize', parseInt(e.target.value))}
                           className="w-full h-1.5 bg-stone-700 rounded appearance-none cursor-pointer accent-amber-500"
                         />
                       </div>
@@ -1294,6 +1366,26 @@ export const CertificateForm: React.FC<CertificateFormProps> = ({
               onChange={(e) => handleInputChange('responsaveis', e.target.value)}
               placeholder="Ex: Carlos Silva e Maria Schmidt"
               className="w-full px-3.5 py-2 text-sm bg-[#302d2b] border border-stone-600 rounded-lg text-stone-100 placeholder-stone-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* PROGRESSÃO DE ETAPA DE (Entre Linha 2 Pais/Responsáveis e Linha 3 Grupo Escoteiro) */}
+        {(certificate.category === 'Progressão' || certificate.model.includes('Acolhida') || certificate.progressionStage !== undefined) && (
+          <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg space-y-1">
+            <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                <span>Progressão de etapa de:</span>
+              </span>
+              <span className="text-[10px] text-stone-400 font-normal normal-case">Exigido em certificados de progressão pessoal</span>
+            </label>
+            <input
+              type="text"
+              value={certificate.progressionStage ?? ''}
+              onChange={(e) => handleInputChange('progressionStage', e.target.value)}
+              placeholder="Ex: Acolhida dos Filhotes / Lobo Saltador / Pista / Rumo"
+              className="w-full px-3.5 py-2 text-sm bg-[#302d2b] border border-amber-500/40 rounded-lg text-stone-100 placeholder-stone-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none"
             />
           </div>
         )}

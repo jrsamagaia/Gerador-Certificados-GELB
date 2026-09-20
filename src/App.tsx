@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { CertificateCanvas } from './components/CertificateCanvas';
+import { CertificatePreviewWrapper } from './components/CertificatePreviewWrapper';
 import { CertificateForm } from './components/CertificateForm';
 import { BatchGenerator } from './components/BatchGenerator';
 import { HistoryList } from './components/HistoryList';
@@ -23,6 +24,11 @@ const INITIAL_CERTIFICATE: CertificateData = {
   recipientName: 'Gabriel Schmidt Silva',
   recipientRegistration: '329182-1',
   responsaveis: 'Carlos Silva e Maria Schmidt',
+  progressionStage: 'Acolhida dos Filhotes',
+  fieldProgressionStageY: 40.5,
+  fieldProgressionStageX: 44.0,
+  fieldProgressionStageFontSize: 17,
+  showProgressionStageOnTemplate: true,
   section: 'Tropa Escoteira',
   eventName: 'Progressão - Acolhida',
   eventDate: '25 de Agosto de 2026',
@@ -171,14 +177,19 @@ export default function App() {
               />
             </div>
 
-            {/* ÁREA DE PRÉ-VISUALIZAÇÃO DO CERTIFICADO */}
-            <div className="xl:col-span-7 flex flex-col items-center gap-4">
-              <div className="w-full bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-md">
-                <div className="flex items-center justify-between mb-4 border-b pb-3">
+            {/* ÁREA DE PRÉ-VISUALIZAÇÃO DO CERTIFICADO (Acompanha o menu / Fixa no scroll) */}
+            <div className="xl:col-span-7 xl:sticky xl:top-6 self-start flex flex-col items-center gap-4 transition-all z-20">
+              <div className="w-full bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 border-b pb-3">
                   <div>
-                    <h3 className="text-base font-bold text-[#0F2C59] font-serif">
-                      Pré-visualização do Certificado Oficial GELB
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-[#0F2C59] font-serif">
+                        Pré-visualização do Certificado Oficial GELB
+                      </h3>
+                      <span className="inline-flex items-center text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                        Tempo Real &bull; Acompanha Menu
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-500">
                       Formato A4 Paisagem &bull; Impressão e PDF de alta resolução
                     </p>
@@ -188,13 +199,40 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* ESCALONAMENTO RESPONSIVO DO CERTIFICADO */}
-                <div className="w-full overflow-x-auto flex justify-center py-2 bg-slate-200/60 rounded-xl border border-slate-300/80">
-                  <div className="transform scale-[0.52] sm:scale-[0.65] md:scale-[0.75] lg:scale-[0.82] origin-top my-[-180px] sm:my-[-120px] md:my-[-80px]">
-                    <CertificateCanvas
-                      certificate={certificate}
-                      containerId="main-certificate-canvas"
-                    />
+                {/* ESCALONAMENTO RESPONSIVO DINÂMICO SEM CORTES */}
+                <CertificatePreviewWrapper
+                  certificate={certificate}
+                  containerId="main-certificate-canvas"
+                />
+
+                {/* ATALHOS RÁPIDOS NA PRÉ-VISUALIZAÇÃO */}
+                <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-stone-600">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[11px]">Sincronizado com a calibração de linhas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="px-2.5 py-1 bg-[#0F2C59] hover:bg-blue-900 text-white rounded font-semibold text-[11px] transition-colors shadow-sm"
+                    >
+                      PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPng}
+                      className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded font-semibold text-[11px] transition-colors shadow-sm"
+                    >
+                      PNG
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-[#0F2C59] rounded font-bold text-[11px] transition-colors shadow-sm"
+                    >
+                      Imprimir
+                    </button>
                   </div>
                 </div>
 

@@ -58,7 +58,11 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
 
     // Regras por categoria da interface das imagens
     if (certificate.category === 'Progressão') {
-      let txt = `${group} confere o certificado de ${certificate.model || 'Progressão Escoteira'}, em reconhecimento à sua evolução, aprendizado e participação exemplar no Movimento Escoteiro.`;
+      let txt = `${group} confere o certificado de ${certificate.model || 'Progressão Escoteira'}`;
+      if (certificate.progressionStage) {
+        txt += ` (etapa de ${certificate.progressionStage})`;
+      }
+      txt += `, em reconhecimento à sua evolução, aprendizado e participação exemplar no Movimento Escoteiro.`;
       if (certificate.responsaveis) {
         txt += ` Agradecemos aos responsáveis (${certificate.responsaveis}) pelo apoio continuo.`;
       }
@@ -134,6 +138,10 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
       const respY = certificate.fieldResponsaveisY ?? 36.2;
       const respX = certificate.fieldResponsaveisX ?? 46.5;
       const respSize = certificate.fieldResponsaveisFontSize ?? 17;
+
+      const progStageY = certificate.fieldProgressionStageY ?? 40.5;
+      const progStageX = certificate.fieldProgressionStageX ?? 44.0;
+      const progStageSize = certificate.fieldProgressionStageFontSize ?? 17;
 
       const groupY = certificate.fieldGroupY ?? 44.8;
       const groupX = certificate.fieldGroupX ?? 41.5;
@@ -234,6 +242,33 @@ export const CertificateCanvas: React.FC<CertificateCanvasProps> = ({
                 }}
               >
                 {certificate.responsaveis || 'Pais e Responsáveis Legais'}
+              </div>
+            </div>
+          )}
+
+          {/* CAMPO INTERMEDIÁRIO: PROGRESSÃO DE ETAPA DE (Entre Pais/Responsáveis e Grupo) */}
+          {certificate.showProgressionStageOnTemplate !== false && (certificate.progressionStage || certificate.category === 'Progressão') && (
+            <div
+              className="absolute z-10 pointer-events-none"
+              style={{
+                top: `${progStageY}%`,
+                left: `${progStageX}%`,
+                width: '32%',
+                transform: 'translateY(-60%)',
+              }}
+            >
+              <div
+                className="truncate"
+                style={{
+                  fontFamily: recipientFont,
+                  fontSize: `${progStageSize}px`,
+                  color: recipientColor,
+                  fontWeight: 600,
+                  lineHeight: 1.15,
+                  textShadow: '0 1px 2px rgba(255, 255, 255, 0.95)',
+                }}
+              >
+                {certificate.progressionStage || 'Acolhida dos Filhotes'}
               </div>
             </div>
           )}

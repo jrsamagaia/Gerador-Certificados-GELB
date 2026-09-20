@@ -52,6 +52,7 @@ export interface CertificateData {
   model: string;
   groupName: string; // Ex: 'Grupo Escoteiro Leões de Blumenau - GELB 32/SC'
   responsaveis?: string; // Para Acolhida / Progressão
+  progressionStage?: string; // Progressão de etapa de (ex: 'Acolhida dos Filhotes', 'Lobo Saltador', 'Pista', 'Rumo')
   nomeEspecialidade?: string; // Ex: 'Radioamadorismo'
   nivelConquistado?: string; // '1' | '2' | '3'
   itensCompletados?: string; // Ex: '1, 3, 5 e 8'
@@ -94,6 +95,11 @@ export interface CertificateData {
   fieldResponsaveisY?: number; // % vertical linha responsáveis (padrão: 36.2)
   fieldResponsaveisX?: number; // % horizontal início linha responsáveis (padrão: 46.5)
   fieldResponsaveisFontSize?: number; // Tamanho fonte responsáveis
+  
+  showProgressionStageOnTemplate?: boolean; // Se preenche etapa de progressão na linha correspondente
+  fieldProgressionStageY?: number; // % vertical linha progressão (padrão: 40.5)
+  fieldProgressionStageX?: number; // % horizontal início linha progressão (padrão: 44.0)
+  fieldProgressionStageFontSize?: number; // Tamanho fonte progressão
   
   showGroupOnTemplate?: boolean; // Se preenche grupo escoteiro na linha
   fieldGroupY?: number; // % vertical linha grupo escoteiro (padrão: 44.8)
