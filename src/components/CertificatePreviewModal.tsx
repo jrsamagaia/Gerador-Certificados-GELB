@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { X, ZoomIn, ZoomOut, Maximize2, Download, Printer, FileText } from 'lucide-react';
 import { CertificateCanvas } from './CertificateCanvas';
 import { CertificateData } from '../types/certificate';
-import { exportCertificateToPdf, exportCertificateToPng, printCertificate } from '../utils/pdfGenerator';
+import { exportCertificateToPdf, exportCertificateToPng, printCertificate, PdfPageSize } from '../utils/pdfGenerator';
+import { PdfSizeModal } from './PdfSizeModal';
 
 interface CertificatePreviewModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
   certificate,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(0.85);
+  const [isPdfSizeModalOpen, setIsPdfSizeModalOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -32,9 +34,17 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
   };
 
   const handleDownloadPdf = () => {
-    exportCertificateToPdf(
+    setIsPdfSizeModalOpen(true);
+  };
+
+  const handleConfirmPdfDownload = async (size: PdfPageSize) => {
+    const cleanName = certificate.recipientName.trim()
+      ? certificate.recipientName.toLowerCase().replace(/\s+/g, '-')
+      : 'homenageado';
+    await exportCertificateToPdf(
       'modal-certificate-canvas',
-      `certificado-gelb-${certificate.recipientName.toLowerCase().replace(/\s+/g, '-')}.pdf`
+      `certificado-gelb-${cleanName}-${size.toUpperCase()}.pdf`,
+      size
     );
   };
 
@@ -185,6 +195,14 @@ export const CertificatePreviewModal: React.FC<CertificatePreviewModalProps> = (
           </button>
         </div>
       </div>
+
+      <PdfSizeModal
+        isOpen={isPdfSizeModalOpen}
+        onClose={() => setIsPdfSizeModalOpen(false)}
+        onConfirm={handleConfirmPdfDownload}
+        recipientName={certificate.recipientName}
+        eventName={certificate.eventName}
+      />
     </div>
   );
 };

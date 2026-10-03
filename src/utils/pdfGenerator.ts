@@ -117,9 +117,12 @@ async function prepareClonedDocument(clonedDoc: Document, targetElId: string): P
   fixModernColorsInClonedDoc(clonedDoc, targetElId);
 }
 
+export type PdfPageSize = 'a4' | 'a5';
+
 export async function exportCertificateToPdf(
   elementId: string,
-  fileName: string = 'certificado-gelb.pdf'
+  fileName: string = 'certificado-gelb.pdf',
+  pageSize: PdfPageSize = 'a4'
 ): Promise<void> {
   // Check if dedicated unscaled export canvas is available
   const targetId = document.getElementById('export-certificate-canvas') ? 'export-certificate-canvas' : elementId;
@@ -135,9 +138,9 @@ export async function exportCertificateToPdf(
     } catch {}
   }
 
-  // Captura o elemento em alta resolução (scale 2 para nitidez perfeita em A4)
+  // Captura o elemento em alta resolução (scale 2.2 para nitidez perfeita em A4 e A5)
   const canvas = await html2canvas(element, {
-    scale: 2,
+    scale: 2.2,
     useCORS: true,
     allowTaint: true,
     backgroundColor: '#ffffff',
@@ -147,17 +150,19 @@ export async function exportCertificateToPdf(
     },
   });
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.96);
+  const imgData = canvas.toDataURL('image/jpeg', 0.97);
 
-  // PDF em orientação Paisagem (Landscape), formato A4
+  // PDF em orientação Paisagem (Landscape)
+  // A4: 297mm x 210mm (21 x 29,7 cm)
+  // A5: 210mm x 148.5mm (14,8 x 21 cm)
   const pdf = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
-    format: 'a4',
+    format: pageSize === 'a5' ? 'a5' : 'a4',
   });
 
-  const pdfWidth = pdf.internal.pageSize.getWidth(); // 297mm
-  const pdfHeight = pdf.internal.pageSize.getHeight(); // 210mm
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
 
   pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
   pdf.save(fileName);

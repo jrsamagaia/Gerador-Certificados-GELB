@@ -1666,9 +1666,13 @@ export const CertificateForm: React.FC<CertificateFormProps> = ({
           type="button"
           onClick={onDownloadPdf}
           className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-lg shadow-lg transition-all"
+          title="Escolher tamanho (A4 ou A5) e baixar PDF oficial"
         >
           <Download className="w-4 h-4" />
           <span>Baixar PDF Oficial</span>
+          <span className="text-[9px] bg-white/25 text-blue-50 px-1.5 py-0.5 rounded font-mono font-bold">
+            A4 / A5
+          </span>
         </button>
       </div>
 

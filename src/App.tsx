@@ -10,7 +10,8 @@ import { DirectoryInspector } from './components/DirectoryInspector';
 import { CertificateData, CertificateTemplate } from './types/certificate';
 import { GELB_LOGO_DATA_URL, SIGNATURE_PRESIDENTE_DATA_URL, SIGNATURE_DIRETORIA_DATA_URL } from './assets/gelbAssetsData';
 import { generateCertificateHash } from './utils/qrUtils';
-import { exportCertificateToPdf, exportCertificateToPng, printCertificate } from './utils/pdfGenerator';
+import { exportCertificateToPdf, exportCertificateToPng, printCertificate, PdfPageSize } from './utils/pdfGenerator';
+import { PdfSizeModal } from './components/PdfSizeModal';
 
 import { getSavedFonts, loadGoogleFontsToHead } from './utils/gelbSettings';
 
@@ -63,6 +64,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('single');
   const [certificate, setCertificate] = useState<CertificateData>(INITIAL_CERTIFICATE);
   const [history, setHistory] = useState<CertificateData[]>([]);
+  const [isPdfSizeModalOpen, setIsPdfSizeModalOpen] = useState(false);
 
   // Carrega histórico salvo do localStorage se existir
   useEffect(() => {
@@ -131,10 +133,15 @@ export default function App() {
   };
 
   const handleDownloadPdf = () => {
-    exportCertificateToPdf(
-      'export-certificate-canvas',
-      `certificado-gelb-${certificate.recipientName.toLowerCase().replace(/\s+/g, '-')}.pdf`
-    );
+    setIsPdfSizeModalOpen(true);
+  };
+
+  const handleConfirmPdfDownload = async (size: PdfPageSize) => {
+    const cleanName = certificate.recipientName.trim()
+      ? certificate.recipientName.toLowerCase().replace(/\s+/g, '-')
+      : 'homenageado';
+    const fileName = `certificado-gelb-${cleanName}-${size.toUpperCase()}.pdf`;
+    await exportCertificateToPdf('export-certificate-canvas', fileName, size);
   };
 
   const handleDownloadPng = () => {
@@ -215,9 +222,11 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleDownloadPdf}
-                      className="px-2.5 py-1 bg-[#0F2C59] hover:bg-blue-900 text-white rounded font-semibold text-[11px] transition-colors shadow-sm"
+                      className="px-2.5 py-1 bg-[#0F2C59] hover:bg-blue-900 text-white rounded font-semibold text-[11px] transition-colors shadow-sm flex items-center gap-1"
+                      title="Escolher tamanho (A4 ou A5) e baixar PDF oficial"
                     >
-                      PDF
+                      <span>PDF</span>
+                      <span className="text-[9px] bg-amber-400 text-[#0F2C59] px-1 rounded font-bold">A4/A5</span>
                     </button>
                     <button
                       type="button"
@@ -313,6 +322,15 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* MODAL DE SELEÇÃO DE TAMANHO DO CERTIFICADO (A4 / A5) */}
+      <PdfSizeModal
+        isOpen={isPdfSizeModalOpen}
+        onClose={() => setIsPdfSizeModalOpen(false)}
+        onConfirm={handleConfirmPdfDownload}
+        recipientName={certificate.recipientName}
+        eventName={certificate.eventName}
+      />
 
     </div>
   );
