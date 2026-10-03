@@ -16,6 +16,13 @@ import {
   ExternalLink,
   X,
   Check,
+  Cloud,
+  CloudUpload,
+  RefreshCw,
+  LogIn,
+  LogOut,
+  ShieldCheck,
+  Globe,
 } from 'lucide-react';
 import { CertificateTemplate, ScoutCategory } from '../types/certificate';
 import { SCOUT_CATEGORIES, CATEGORY_MODELS_MAP } from '../data/scoutCategoriesData';
@@ -25,8 +32,12 @@ import {
   deleteTemplate,
   setDefaultTemplate,
   initDefaultTemplates,
+  fetchCloudTemplates,
+  syncAllLocalTemplatesToCloud,
+  subscribeToCloudTemplates,
 } from '../utils/customTemplatesStorage';
 import { convertPdfToImageDataUrl } from '../utils/pdfRenderer';
+import { useAuth } from '../context/AuthContext';
 
 interface CertificateTemplatesManagerProps {
   onSelectTemplateForIssuer?: (template: CertificateTemplate) => void;
@@ -35,14 +46,17 @@ interface CertificateTemplatesManagerProps {
 export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerProps> = ({
   onSelectTemplateForIssuer,
 }) => {
+  const { user, signInWithGoogle, signOutUser } = useAuth();
   const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
   const [filterCategory, setFilterCategory] = useState<ScoutCategory>('Todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPreviewTemplate, setSelectedPreviewTemplate] = useState<CertificateTemplate | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string; name: string } | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   // Formulário de Upload de Modelo
   const [showUploadForm, setShowUploadForm] = useState<boolean>(false);
@@ -59,7 +73,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3500);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   const loadAll = async () => {
@@ -78,12 +92,27 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
   useEffect(() => {
     loadAll();
 
+    // Sincronização em tempo real de modelos da nuvem (Firestore)
+    let unsubscribeCloud: (() => void) | undefined;
+    try {
+      unsubscribeCloud = subscribeToCloudTemplates((cloudTemplates) => {
+        if (cloudTemplates && cloudTemplates.length > 0) {
+          getAllTemplates().then(setTemplates);
+        }
+      });
+    } catch (e) {
+      console.warn('Escuta em tempo real da nuvem não inicializada:', e);
+    }
+
     const handleUpdated = () => {
       getAllTemplates().then(setTemplates);
     };
 
     window.addEventListener('gelb_templates_updated', handleUpdated);
-    return () => window.removeEventListener('gelb_templates_updated', handleUpdated);
+    return () => {
+      window.removeEventListener('gelb_templates_updated', handleUpdated);
+      if (unsubscribeCloud) unsubscribeCloud();
+    };
   }, []);
 
   // Atualiza modelo padrão quando a categoria muda no formulário
@@ -95,6 +124,40 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
       }
     }
   }, [category]);
+
+  const handleManualCloudRefresh = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const cloud = await fetchCloudTemplates();
+      const loaded = await getAllTemplates();
+      setTemplates(loaded);
+      showNotification(`Sincronização concluída! ${cloud.length} modelos atualizados da nuvem.`);
+    } catch (err) {
+      console.error('Erro ao sincronizar da nuvem:', err);
+      showNotification('Não foi possível conectar à nuvem no momento. Verifique sua conexão.', 'error');
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
+  const handleSyncLocalToCloud = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setIsSyncingCloud(true);
+    try {
+      const count = await syncAllLocalTemplatesToCloud();
+      await loadAll();
+      showNotification(`Sucesso! ${count} modelos locais foram salvos e publicados na nuvem.`);
+    } catch (err) {
+      console.error('Erro ao subir modelos para a nuvem:', err);
+      showNotification('Erro ao salvar modelos na nuvem. Verifique suas permissões.', 'error');
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,10 +246,15 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
         updatedAt: new Date().toISOString(),
       };
 
-      await saveTemplate(newTemplate);
+      // Se o usuário está logado, salva na nuvem e localmente. Se não estiver, salva localmente e avisa.
+      await saveTemplate(newTemplate, !!user);
       await loadAll();
 
-      showNotification(`Modelo "${newTemplate.name}" armazenado com sucesso no core do sistema!`);
+      if (user) {
+        showNotification(`Modelo "${newTemplate.name}" publicado na NUVEM e salvo com sucesso! Já está disponível em outros computadores e no Vercel.`);
+      } else {
+        showNotification(`Modelo "${newTemplate.name}" salvo localmente. Conecte sua conta Google no topo para sincronizá-lo na nuvem.`);
+      }
 
       // Limpa formulário
       setTemplateName('');
@@ -213,7 +281,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
     try {
       await deleteTemplate(templateToDelete.id);
       await loadAll();
-      showNotification(`Modelo "${templateToDelete.name}" removido com sucesso do core do sistema.`);
+      showNotification(`Modelo "${templateToDelete.name}" removido com sucesso.`);
     } catch (err) {
       console.error('Erro ao excluir modelo:', err);
       showNotification('Erro ao remover o modelo. Tente novamente.', 'error');
@@ -253,7 +321,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
       {/* NOTIFICAÇÃO TOAST */}
       {notification && (
         <div
-          className={`fixed top-24 right-6 z-50 p-4 rounded-xl shadow-2xl flex items-center gap-3 text-white font-bold text-sm animate-bounce ${
+          className={`fixed top-24 right-6 z-50 p-4 rounded-xl shadow-2xl flex items-center gap-3 text-white font-bold text-sm ${
             notification.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
           }`}
         >
@@ -266,6 +334,80 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
         </div>
       )}
 
+      {/* PAINEL DE SINCRONIZAÇÃO EM NUVEM (FIREBASE FIRESTORE) */}
+      <div className="bg-gradient-to-r from-[#0F2C59] via-[#163b75] to-[#0d2242] text-white p-5 rounded-2xl border-2 border-amber-400 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="p-3 bg-amber-400 text-[#0F2C59] rounded-xl shadow-md shrink-0 mt-0.5">
+            <Cloud className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-bold text-white font-serif uppercase tracking-wide">
+                Armazenamento & Sincronização em Nuvem Oficial GELB
+              </h3>
+              <span className="inline-flex items-center gap-1 text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full uppercase">
+                <Globe className="w-3 h-3 text-emerald-400" />
+                Multi-Computador & Vercel
+              </span>
+            </div>
+            <p className="text-xs text-slate-200 mt-1 max-w-2xl leading-relaxed">
+              Os modelos publicados aqui são salvos no banco de dados na nuvem (Firebase Firestore). Eles permanecem salvos e sincronizados ao acessar o aplicativo em outro computador, aba anônima, outro navegador ou no seu deploy do Vercel.
+            </p>
+            {user ? (
+              <div className="flex items-center gap-2 text-xs text-amber-200 mt-2 font-medium">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Conectado como <strong>{user.displayName || user.email}</strong> &bull; Permissão de publicação na nuvem ativa.
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-amber-200/90 mt-2 font-medium">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>
+                  Modo de Leitura Pública ativo. Conecte-se com sua conta Google para salvar ou sincronizar novos modelos na nuvem.
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* AÇÕES DE SINCRONIZAÇÃO EM NUVEM */}
+        <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end flex-wrap">
+          {user ? (
+            <button
+              type="button"
+              onClick={handleSyncLocalToCloud}
+              disabled={isSyncingCloud}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-[#0F2C59] font-black text-xs rounded-xl transition-all shadow-md"
+              title="Salvar todos os modelos locais na nuvem do Firebase"
+            >
+              <CloudUpload className="w-4 h-4" />
+              <span>{isSyncingCloud ? 'Sincronizando...' : 'Publicar Locais na Nuvem'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => signInWithGoogle()}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-[#0F2C59] font-black text-xs rounded-xl transition-all shadow-md"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Conectar com Google</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleManualCloudRefresh}
+            disabled={isSyncingCloud}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-900/60 hover:bg-blue-900 text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-blue-700/60 transition-all"
+            title="Atualizar lista de certificados da nuvem"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin text-amber-400' : ''}`} />
+            <span>Atualizar Nuvem</span>
+          </button>
+        </div>
+      </div>
+
       {/* CABEÇALHO DO GERENCIADOR DE MODELOS */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -275,12 +417,12 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
               Modelos Específicos de Certificados (PDF)
             </h2>
             <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
-              Core GELB
+              {templates.length} Modelos
             </span>
           </div>
           <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
             Faça upload e gerencie os modelos oficiais de certificados em PDF. Ao cadastrar um modelo, ele fica
-            armazenado no core do sistema e disponível automaticamente na emissão individual e em lote.
+            armazenado no banco em nuvem e disponível automaticamente na emissão individual e em lote em qualquer dispositivo.
           </p>
         </div>
 
@@ -317,10 +459,13 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-400" />
               <h3 className="text-base font-bold text-white font-serif">
-                Cadastrar Novo Modelo Específico no Core
+                Cadastrar Novo Modelo Específico no Sistema
               </h3>
             </div>
-            <span className="text-xs text-slate-400">Armazenamento Local e Permanente</span>
+            <span className="text-xs text-emerald-300 font-semibold flex items-center gap-1">
+              <Cloud className="w-3.5 h-3.5" />
+              {user ? 'Salva na Nuvem & Local' : 'Salva Local (Conecte Google para Nuvem)'}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -415,7 +560,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                       <span>{selectedFile.name}</span>
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • Pronto para armazenamento no core
+                      {(selectedFile.size / 1024).toFixed(1)} KB • Pronto para publicação
                     </p>
                   </div>
                 ) : (
@@ -455,36 +600,53 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
           </div>
 
           {/* BOTÕES DE AÇÃO DO FORMULÁRIO */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-700">
-            <button
-              type="button"
-              onClick={() => setShowUploadForm(false)}
-              className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
-            >
-              Cancelar
-            </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-700">
+            {!user ? (
+              <button
+                type="button"
+                onClick={() => signInWithGoogle()}
+                className="text-xs text-amber-300 hover:text-amber-200 underline font-semibold flex items-center gap-1"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Conectar Google para salvar na Nuvem</span>
+              </button>
+            ) : (
+              <span className="text-xs text-emerald-400 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> Salvará automaticamente no Firestore
+              </span>
+            )}
 
-            <button
-              type="submit"
-              disabled={isUploading || !selectedFile}
-              className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg ${
-                isUploading || !selectedFile
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                  : 'bg-amber-400 text-[#0F2C59] hover:bg-amber-300 font-black'
-              }`}
-            >
-              {isUploading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-[#0F2C59] border-t-transparent rounded-full animate-spin" />
-                  <span>Processando e Armazenando no Core...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Salvar Modelo no Core do Sistema</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowUploadForm(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="submit"
+                disabled={isUploading || !selectedFile}
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg ${
+                  isUploading || !selectedFile
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                    : 'bg-amber-400 text-[#0F2C59] hover:bg-amber-300 font-black'
+                }`}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[#0F2C59] border-t-transparent rounded-full animate-spin" />
+                    <span>Publicando Modelo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{user ? 'Salvar e Publicar na Nuvem' : 'Salvar Modelo'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -528,19 +690,22 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
         </div>
       </div>
 
-      {/* LISTA / GRADE DE MODELOS ARMAZENADOS */}
+      {/* LISTAGEM DE MODELOS EM GRADE RESPONSIVA */}
       {loading ? (
-        <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-3 border-[#0F2C59] border-t-amber-400 rounded-full animate-spin" />
-          <p className="text-xs font-semibold">Carregando modelos do core do sistema...</p>
+          <p className="text-xs font-bold text-slate-600">Sincronizando modelos da nuvem e core...</p>
         </div>
       ) : filteredTemplates.length === 0 ? (
-        <div className="bg-white p-10 rounded-2xl border border-dashed border-slate-300 text-center flex flex-col items-center justify-center gap-3">
-          <FileText className="w-12 h-12 text-slate-300" />
-          <h4 className="text-sm font-bold text-slate-700">Nenhum modelo de certificado encontrado</h4>
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center flex flex-col items-center justify-center gap-3">
+          <div className="p-4 bg-slate-100 rounded-full text-slate-400">
+            <FileText className="w-8 h-8" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-700">Nenhum modelo encontrado</h3>
           <p className="text-xs text-slate-500 max-w-md">
-            Clique no botão acima "Fazer Upload de Modelo PDF" para incluir novos certificados específicos no core
-            do sistema.
+            {searchQuery || filterCategory !== 'Todas'
+              ? 'Tente ajustar os filtros ou o termo de pesquisa.'
+              : 'Faça upload do primeiro modelo em PDF para disponibilizá-lo na nuvem e no emissor.'}
           </p>
         </div>
       ) : (
@@ -576,6 +741,12 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                   <span>Visualizar PDF</span>
                 </div>
 
+                {/* BADGE DE NUVEM */}
+                <div className="absolute top-2.5 left-2.5 bg-blue-900/80 backdrop-blur-xs text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs border border-amber-400/40">
+                  <Cloud className="w-3 h-3 text-emerald-400" />
+                  <span>Nuvem</span>
+                </div>
+
                 {/* BADGE DE MODELO ATIVO / PADRÃO */}
                 {t.isDefault && (
                   <div className="absolute top-2.5 right-2.5 bg-amber-400 text-[#0F2C59] text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
@@ -608,7 +779,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                   )}
 
                   <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2.5 pt-2 border-t border-slate-100">
-                    <span>{t.fileName}</span>
+                    <span className="truncate max-w-[150px]">{t.fileName}</span>
                     <span>{(t.fileSize / 1024).toFixed(0)} KB</span>
                   </div>
                 </div>
@@ -649,7 +820,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                       type="button"
                       onClick={() => handleDeleteClick(t.id, t.name)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      title="Excluir modelo do core"
+                      title="Excluir modelo"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -715,8 +886,9 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
             </div>
 
             <div className="bg-white p-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-              <span>
-                Data de inclusão: {new Date(selectedPreviewTemplate.createdAt).toLocaleDateString('pt-BR')}
+              <span className="flex items-center gap-1.5">
+                <Cloud className="w-3.5 h-3.5 text-blue-600" />
+                <span>Armazenado na nuvem Firestore &bull; Data: {new Date(selectedPreviewTemplate.createdAt).toLocaleDateString('pt-BR')}</span>
               </span>
               {onSelectTemplateForIssuer && (
                 <button
@@ -749,14 +921,14 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                 <Trash2 className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-800 text-center font-serif">
-                Excluir Modelo do Core?
+                Excluir Modelo?
               </h3>
               <p className="text-sm text-slate-600 text-center mt-2">
                 Deseja realmente remover permanentemente o modelo{' '}
                 <strong className="text-slate-900 font-semibold">"{templateToDelete.name}"</strong>?
               </p>
               <p className="text-xs text-slate-400 text-center mt-1">
-                Esta ação apagará o arquivo do banco de modelos do sistema.
+                Esta ação apagará o modelo deste dispositivo e do banco na nuvem.
               </p>
             </div>
 
@@ -775,6 +947,63 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Sim, Excluir Modelo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE LOGIN GOOGLE PARA AÇÕES EM NUVEM */}
+      {showAuthModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border-2 border-amber-400 overflow-hidden">
+            <div className="bg-[#0F2C59] p-6 text-white text-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber-400 text-[#0F2C59] flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <Cloud className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold font-serif uppercase tracking-wide text-amber-300">
+                Conectar com Google
+              </h3>
+              <p className="text-xs text-slate-200 mt-1">
+                Para salvar, editar ou sincronizar certificados diretamente na nuvem (Firestore), autentique-se com sua conta Google.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 leading-relaxed">
+                <p className="font-bold flex items-center gap-1.5 text-[#0F2C59] mb-1">
+                  <Globe className="w-4 h-4 text-blue-600" />
+                  Acesso em qualquer lugar:
+                </p>
+                Os certificados que você salvar estarão disponíveis imediatamente no seu computador, celular, aba anônima e na versão publicada no Vercel.
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                    setShowAuthModal(false);
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="w-full py-3 px-4 bg-[#0F2C59] hover:bg-blue-900 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2.5 transition-all shadow-md"
+              >
+                <LogIn className="w-4 h-4 text-amber-400" />
+                <span>Continuar com Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                Voltar
               </button>
             </div>
           </div>

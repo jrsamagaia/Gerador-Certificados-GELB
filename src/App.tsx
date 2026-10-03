@@ -13,7 +13,7 @@ import { generateCertificateHash } from './utils/qrUtils';
 import { exportCertificateToPdf, exportCertificateToPng, printCertificate, PdfPageSize } from './utils/pdfGenerator';
 import { PdfSizeModal } from './components/PdfSizeModal';
 
-import { getSavedFonts, loadGoogleFontsToHead } from './utils/gelbSettings';
+import { getSavedFonts, loadGoogleFontsToHead, syncGelbSettingsFromCloud } from './utils/gelbSettings';
 
 const INITIAL_CERTIFICATE: CertificateData = {
   id: 'gelb-cert-default',
@@ -66,11 +66,14 @@ export default function App() {
   const [history, setHistory] = useState<CertificateData[]>([]);
   const [isPdfSizeModalOpen, setIsPdfSizeModalOpen] = useState(false);
 
-  // Carrega histórico salvo do localStorage se existir
+  // Carrega histórico salvo do localStorage se existir e sincroniza configurações da nuvem
   useEffect(() => {
     try {
       const savedFonts = getSavedFonts();
       loadGoogleFontsToHead(savedFonts);
+
+      // Sincroniza logo e fontes com a nuvem Firestore
+      syncGelbSettingsFromCloud().catch(() => {});
 
       const saved = localStorage.getItem('gelb_certificates_history');
       if (saved) {

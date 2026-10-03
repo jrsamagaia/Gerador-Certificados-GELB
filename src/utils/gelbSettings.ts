@@ -1,3 +1,5 @@
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from '../config/firebase';
 import { FontDefinition, GELB_FONTS } from '../config/gelbConfig';
 import { GELB_LOGO_DATA_URL } from '../assets/gelbAssetsData';
 
@@ -61,6 +63,24 @@ export function saveSavedFonts(fonts: FontDefinition[]): void {
   try {
     localStorage.setItem(FONTS_STORAGE_KEY, JSON.stringify(fonts));
     loadGoogleFontsToHead(fonts);
+
+    // Sync to Firestore if authenticated
+    if (auth.currentUser) {
+      const path = 'settings/gelb';
+      const ref = doc(db, 'settings', 'gelb');
+      setDoc(
+        ref,
+        {
+          id: 'gelb',
+          fontsJson: JSON.stringify(fonts),
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser.uid,
+        },
+        { merge: true }
+      ).catch((err) => {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      });
+    }
   } catch (e) {
     console.warn('Erro ao salvar fontes:', e);
   }
@@ -94,6 +114,24 @@ export function saveOfficialLogo(logoDataUrl: string): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('gelb_logo_changed', { detail: logoDataUrl }));
     }
+
+    // Sync to Firestore if authenticated and within limit
+    if (auth.currentUser && logoDataUrl.length <= 800000) {
+      const path = 'settings/gelb';
+      const ref = doc(db, 'settings', 'gelb');
+      setDoc(
+        ref,
+        {
+          id: 'gelb',
+          logoDataUrl,
+          updatedAt: new Date().toISOString(),
+          updatedBy: auth.currentUser.uid,
+        },
+        { merge: true }
+      ).catch((err) => {
+        handleFirestoreError(err, OperationType.WRITE, path);
+      });
+    }
   } catch (e) {
     console.warn('Erro ao salvar logo oficial:', e);
   }
@@ -111,6 +149,35 @@ export function resetOfficialLogo(): void {
 }
 
 /**
+ * Carrega configurações institucionais da nuvem (Firebase Firestore)
+ */
+export async function syncGelbSettingsFromCloud(): Promise<void> {
+  const path = 'settings/gelb';
+  try {
+    const docRef = doc(db, 'settings', 'gelb');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.logoDataUrl && typeof data.logoDataUrl === 'string') {
+        localStorage.setItem(LOGO_STORAGE_KEY, data.logoDataUrl);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gelb_logo_changed', { detail: data.logoDataUrl }));
+        }
+      }
+      if (data.fontsJson && typeof data.fontsJson === 'string') {
+        const parsed = JSON.parse(data.fontsJson);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          localStorage.setItem(FONTS_STORAGE_KEY, data.fontsJson);
+          loadGoogleFontsToHead(parsed);
+        }
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+/**
  * Carrega dinamicamente as fontes do Google Fonts no <head> da página
  */
 export function loadGoogleFontsToHead(fonts: FontDefinition[]): void {
@@ -118,7 +185,7 @@ export function loadGoogleFontsToHead(fonts: FontDefinition[]): void {
     const rawName = f.googleFontName || f.name.split('(')[0].trim();
     if (!rawName) return;
     const fontId = `google-font-dyn-${f.id}`;
-    let link = document.getElementById(fontId) as HTMLLinkElement | null;
+    let link = document.head.querySelector(`link#${fontId}`) as HTMLLinkElement | null;
     if (!link) {
       link = document.createElement('link');
       link.id = fontId;
