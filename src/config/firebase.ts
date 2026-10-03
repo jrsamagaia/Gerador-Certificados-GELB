@@ -77,8 +77,14 @@ testFirestoreConnection();
 export async function loginWithGoogle() {
   try {
     return await signInWithPopup(auth, googleProvider);
-  } catch (error) {
-    console.error('Erro no login Google:', error);
+  } catch (error: any) {
+    if (
+      error?.code === 'auth/popup-closed-by-user' ||
+      error?.code === 'auth/cancelled-popup-request'
+    ) {
+      return null;
+    }
+    console.warn('Aviso de autenticação Google:', error?.message || error);
     throw error;
   }
 }

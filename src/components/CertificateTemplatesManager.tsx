@@ -125,6 +125,20 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
     }
   }, [category]);
 
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request'
+      ) {
+        return;
+      }
+      showNotification('Não foi possível autenticar com o Google. Tente novamente.', 'error');
+    }
+  };
+
   const handleManualCloudRefresh = async () => {
     setIsSyncingCloud(true);
     try {
@@ -387,7 +401,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
           ) : (
             <button
               type="button"
-              onClick={() => signInWithGoogle()}
+              onClick={handleGoogleSignIn}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-[#0F2C59] font-black text-xs rounded-xl transition-all shadow-md"
             >
               <LogIn className="w-4 h-4" />
@@ -604,7 +618,7 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
             {!user ? (
               <button
                 type="button"
-                onClick={() => signInWithGoogle()}
+                onClick={handleGoogleSignIn}
                 className="text-xs text-amber-300 hover:text-amber-200 underline font-semibold flex items-center gap-1"
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -988,8 +1002,14 @@ export const CertificateTemplatesManager: React.FC<CertificateTemplatesManagerPr
                   try {
                     await signInWithGoogle();
                     setShowAuthModal(false);
-                  } catch (e) {
-                    console.error(e);
+                  } catch (e: any) {
+                    if (
+                      e?.code === 'auth/popup-closed-by-user' ||
+                      e?.code === 'auth/cancelled-popup-request'
+                    ) {
+                      return;
+                    }
+                    console.warn('Falha no login:', e?.message || e);
                   }
                 }}
                 className="w-full py-3 px-4 bg-[#0F2C59] hover:bg-blue-900 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2.5 transition-all shadow-md"

@@ -39,9 +39,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     try {
       setAuthError(null);
       await signInWithGoogle();
-    } catch (err) {
-      console.error('Falha ao autenticar com Google:', err);
-      setAuthError('Não foi possível entrar com Google. Tente novamente.');
+    } catch (err: any) {
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request'
+      ) {
+        return;
+      }
+      setAuthError(err?.message || 'Não foi possível entrar com Google. Tente novamente.');
       setTimeout(() => setAuthError(null), 4000);
     }
   };
